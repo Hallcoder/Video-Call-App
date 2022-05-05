@@ -10,20 +10,25 @@ const socket = io("http://192.168.1.144:8000");
 socket.onmessage = e =>{
   handleSignallingData(JSON.parse(e.data))
 }
-socket.sendData({
-  type:'store_user',
-  username
-})
+
 function handleSignallingData(data){
    switch(data.type){
-     case "answer":
-       peerConnection.setRemoteDescription(data.answer);
+     case "offer":
+       peerConnection.setRemoteDescription(data.offer);
+       createAndSendAnswer();
        break;
      case 'candidate':
        peerConnection.addIceCandidate(data.candidate)
    }
 }
-
+ async function createAndSendAnswer(){
+  const answer = await peerConnection.createAnswer();
+  peerConnection.setLocalDescription(answer);
+  sendData({
+    type:'answer',
+    answer
+  })
+}
 
 const configuration = {
   iceServers: [{ urls:["stun:stun1.l.google.com:19302",
@@ -62,14 +67,16 @@ Cbutton.addEventListener("click", async (e) => {
     const remoteVideo = document.getElementById("remoteVideo");
     remoteVideo.srcObject = e.track
   })
-  createAndSendOffer();
   peerConnection.onicecandidate(e => {
     if(e.candidate == null){
       return
     }
     sendData({
-      type:'store_candidate',
+      type:'send_candidate',
       candidate:e.candidate
+    })
+    sendData({
+      type:'join_call'
     })
   })
 });
@@ -84,12 +91,6 @@ async function AddUserMediaToStream(){
  })
  const localVideo = document.querySelector("video#localvideo");
  localVideo.srcObject = localStream; 
-}
-
- async function createAndSendOffer(){
- const offer = await  peerConnection.createOffer();
- await peerConnection.setLocalDescription(offer);
-  console.log('Local set',offer);
 }
 function sendData(data){
   data.username = username
